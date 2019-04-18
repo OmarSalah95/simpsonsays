@@ -5,8 +5,9 @@
 	"main": "index.js",
 	"scripts": {
 		"server": "nodemon index.js DB_ENV=development",
-		"test": "cross-env DB_ENV=testing && yarn knex migrate:latest && jest --watchAll --verbose",
-		"start": "node index.js"
+		"test": "cross-env DB_ENV=testing && yarn knex migrate:latest --env testing && jest --watchAll --verbose",
+		"start": "node index.js",
+		"reset-dev-DB": "yarn knex migrate:rollback && yarn knex migrate:latest && yarn knex seed:run"
 	},
 	"jest": {
 		"testEnvironment": "node"
@@ -30,8 +31,7 @@
 	},
 	"dependencies": {
 		"apidoc": "^0.17.7",
-		"apidoc-markdown": "^0.2.1",
-		"apidocjs-markdown": "^0.2.2",
+		"axios": "^0.18.0",
 		"bcryptjs": "^2.4.3",
 		"cors": "^2.8.5",
 		"dotenv": "^7.0.0",
@@ -41,5 +41,14 @@
 		"knex": "^0.16.3",
 		"pg": "^7.9.0",
 		"sqlite3": "^4.0.6"
+	},
+	"apidoc": { 
+		"title": "Simpson Says Docs",
+		"url" : "https://simpson-says-backend.herokuapp.com",
+		"order": [
+			"Authentication",
+			"Users",
+			"Admin"
+		]
 	}
 }
