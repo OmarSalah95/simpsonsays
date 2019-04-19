@@ -6,7 +6,7 @@ module.exports = server => {
     server.post('/users/favorites',authenticate, addFavorite);
     server.post('/users/search', searchDeepBE);
     server.post('/users/generate', generateQuote);
-    server.get('/users/favorites',authenticate,  getFavorites);
+    server.get('/users/favorites', authenticate,  getFavorites);
   };
 
 /**
@@ -140,17 +140,94 @@ function searchDeepBE(req, res) {
     
 }
 
+/**
+* @api {post} /users/generate    Generate AI quotes
+* @apiName Post-Generate
+* @apiGroup Users
+* @apiDescription This endpoint is open to all users to generate random quotes given a character using AI 
+*    and returns a list of 10 AI generated Quotes.
+*
+* @apiPermission Users
+*
+* @apiParam {Object} Quote                 Request Object
+* @apiParam {String} Quote.genChar         Character from the Approved list
+* 
+* @apiParamExample {json} Input 
+*     {
+*       "genChar": "bart"
+*     }
+*
+* 
+* @apiSuccess {Array}   Response                              Array Housing 10 Quotes that match the searchValue
+* @apiSuccess {Objects} Response.Quote                        Quote Object
+* @apiSuccess {String}  Response.Quote.charname               Character name 
+* @apiSuccess {String}  Response.Quote.quote                  The generated quote
+*
+* @apiSuccessExample Success-Response:
+*     HTTP/1.1 200 OK
+*  [
+*    {
+*      "quote": "i love a lot of them but i was being idea."
+*    },
+*    {
+*      "quote": "(thoughtful) oh. i made a new fight. i'm just a little baby"
+*    },
+*    {
+*      "quote": "a lot of it just turned the job from."
+*    },
+*    {
+*      "quote": "(chuckles) okay in your heart... and i've been hearing about it."
+*    },
+*    {
+*      "quote": "(earnest) i can't believe a thousand dollars of a bit faith."
+*    },
+*    {
+*      "quote": "i can't believe it. (exasperated sound) get 'em"
+*    },
+*    {
+*      "quote": "(shrugs) i don't have a lot of hearing about the time."
+*    },
+*    {
+*      "quote": "the guys who wrote something better like this or lose a good dog."
+*    },
+*    {
+*      "quote": "(shouts) it's the first thing you're take care!"
+*    },
+*    {
+*      "quote": "(horrified) a kid killed an axe. (shudders) but"
+*    }
+* ]
+*
+*
+* @apiError 404 That character can not be used to generate a quote, please select another from the list.
+*
+* @apiErrorExample Error-Response:
+*     HTTP/1.1 404 Internal Server Error
+*     {
+*        message: "That character can not be used to generate a quote, please select another from the list.",
+*        list:[
+*           'homer', 
+*           'marge', 
+*           'bart', 
+*           'lisa', 
+*           'moe', 
+*           'grampa', 
+*           'skinner'
+*       ]
+*     }
+*/
+
 function generateQuote(req, res) {
     const acceptableInputs = ['homer', 'marge', 'bart', 'lisa', 'moe', 'grampa', 'skinner']
-    const input = {input: req.body.genChar}
+    const input = req.body.genChar
 
-    acceptableInputs.includes(input.input)
-        ? axios.post(`https://eat-my-shorts.herokuapp.com/gen`, input)
+    acceptableInputs.includes(input)
+        ? axios.post(`https://eat-my-shorts.herokuapp.com/gen?input=${input}`)
             .then(deepBERes => { 
-                res.status(200).json(deepBERes.data)
+                res.status(200).json(deepBERes.data.map(genQuote => ({quote:genQuote.quote})))
             })
             .catch(error => res.status(500).json({message: "Failed to generate Quote", error}))
-        : res.status(404).json({message: "That charecter can not be used to generate a quote, please select another from the list.", list:acceptableInputs})
+        : res.status(404).json({message: "That character can not be used to generate a quote, please select another from the list.", list:acceptableInputs})
     
 }
 
@@ -171,12 +248,12 @@ function generateQuote(req, res) {
 *
 * 
 * @apiSuccess {Object}  Response             Response Object
-* @apiSuccess {Boolean} Response.Favorite    Boolean Value Indicating successful User Update
+* @apiSuccess {Boolean} Response.Favorite    Boolean Value Indicating successful User Update of Favorites stored in the DB(this toggles the favorite on and off when used)
 *
 * @apiSuccessExample Success-Response:
 *     HTTP/1.1 200 OK
 *    {
-*      "Favorite-Added": true,
+*      "Favorite-Modified": true,
 *    }
 *
 *
@@ -192,10 +269,17 @@ function generateQuote(req, res) {
 
 function addFavorite(req, res) {
     const favoriteQuote = { quoteID: req.body.quoteID, userID: req.decoded.id }
-    db('favorites')
-        .insert(favoriteQuote)
-        .then(favoriteAdded => res.status(200).json({"Favorite-Added": Boolean(favoriteAdded)}))
-        .catch(error => res.status(500).json({message:"Internal Server Error, failed to add favorite for User.", error}))
+    console.log(favoriteQuote);
+
+    db('favorites').where({userID: favoriteQuote.userID, quoteID: favoriteQuote.quoteID}).del()
+    .then(delRes =>  Boolean(delRes) 
+        ? res.status(200).json({"Favorite-Modified": Boolean(delRes)}) 
+        :  db('favorites')
+            .insert(favoriteQuote)
+            .then(favoriteAdded => res.status(200).json({"Favorite-Modified": Boolean(favoriteAdded)}))
+            .catch(error => res.status(500).json({message:"Internal Server Error, failed to add favorite for User.", error})))
+    .catch(err => res.json({ message: "Failed to Toggle Favorite", err}))
+       
 }
 
 /**
